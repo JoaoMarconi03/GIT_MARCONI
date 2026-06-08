@@ -1,5 +1,5 @@
 function Home() {
-  return <h1>Amanha é dia uhulll</h1>;
+  return <h1>Alba R$1000,00</h1>;
 }
 
 export default Home;
