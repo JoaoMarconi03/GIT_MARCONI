@@ -41,6 +41,7 @@ export default function Home() {
   const [filtro, setFiltro] = useState("");
   const [view, setView] = useState<View>("painel");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [form, setForm] = useState({
     pessoa: "",
     categoria: "",
@@ -78,7 +79,7 @@ export default function Home() {
 
   const navItem = (label: string, active: boolean, onClick: () => void) => (
     <button
-      key={label}
+      key={sidebarCollapsed ? label.split(" ")[0] : label}
       onClick={() => {
         onClick();
         setSidebarOpen(false);
@@ -154,7 +155,8 @@ export default function Home() {
         {/* Sidebar */}
         <nav
           style={{
-            width: 220,
+            width: sidebarCollapsed ? 70 : 220,
+            transition: "all 0.3s ease",
             flexShrink: 0,
             background: "#f8fafc",
             borderRight: "0.5px solid #e2e8f0",
@@ -179,20 +181,38 @@ export default function Home() {
             style={{
               padding: "18px 16px 12px",
               borderBottom: "0.5px solid #e2e8f0",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
             }}
           >
-            <div
+            {!sidebarCollapsed && (
+              <div
+                style={{
+                  fontWeight: 500,
+                  fontSize: 15,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  color: "#1e293b",
+                }}
+              >
+                <span style={{ fontSize: 20 }}>💰</span>
+                Gastos
+              </div>
+            )}
+
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               style={{
-                fontWeight: 500,
-                fontSize: 15,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                color: "#1e293b",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: "18px",
               }}
             >
-              <span style={{ fontSize: 20 }}>💰</span> Gastos
-            </div>
+              {sidebarCollapsed ? "➡️" : "⬅️"}
+            </button>
           </div>
 
           <div
