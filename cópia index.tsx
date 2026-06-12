@@ -39,8 +39,6 @@ function badgeStyle(cat: string) {
 }
 
 export default function Home() {
-  const [gastoParaExcluir, setGastoParaExcluir] = useState<number | null>(null);
-  const [modalExcluir, setModalExcluir] = useState(false);
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [filtro, setFiltro] = useState("");
   const [view, setView] = useState<View>("painel");
@@ -764,10 +762,7 @@ export default function Home() {
                             }}
                           >
                             <button
-                              onClick={() => {
-                                setGastoParaExcluir(g.id);
-                                setModalExcluir(true);
-                              }}
+                              onClick={() => remover(g.id)}
                               style={{
                                 background: "none",
                                 border: "none",
@@ -802,75 +797,6 @@ export default function Home() {
         }
         button:hover { opacity: 0.85; }
       `}</style>
-      {modalExcluir && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              padding: 24,
-              borderRadius: 12,
-              width: 320,
-              textAlign: "center",
-            }}
-          >
-            <h3>Excluir gasto</h3>
-
-            <p>Deseja realmente excluir este gasto?</p>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                gap: 10,
-                marginTop: 20,
-              }}
-            >
-              <button
-                onClick={() => setModalExcluir(false)}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 8,
-                  border: "1px solid #ccc",
-                  cursor: "pointer",
-                }}
-              >
-                Cancelar
-              </button>
-
-              <button
-                onClick={async () => {
-                  if (gastoParaExcluir) {
-                    await remover(gastoParaExcluir);
-                  }
-
-                  setModalExcluir(false);
-                  setGastoParaExcluir(null);
-                }}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: "#dc2626",
-                  color: "#fff",
-                  cursor: "pointer",
-                }}
-              >
-                Excluir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
