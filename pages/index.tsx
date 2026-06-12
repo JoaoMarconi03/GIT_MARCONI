@@ -45,7 +45,6 @@ export default function Home() {
   const [filtro, setFiltro] = useState("");
   const [view, setView] = useState<View>("painel");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [pessoasOpen, setPessoasOpen] = useState(true);
   const [form, setForm] = useState({
     pessoa: "",
@@ -135,7 +134,7 @@ export default function Home() {
 
   const navItem = (label: string, active: boolean, onClick: () => void) => (
     <button
-      key={sidebarCollapsed ? label.split(" ")[0] : label}
+      key={label}
       onClick={() => {
         onClick();
         setSidebarOpen(false);
@@ -212,14 +211,14 @@ export default function Home() {
         <nav
           className={sidebarOpen ? "sidebar sidebar-open" : "sidebar"}
           style={{
-            width: sidebarCollapsed ? 70 : 220,
+            position: "absolute",
+            left: sidebarOpen ? 0 : -220,
+            top: 0,
+            height: "100%",
+            width: 220,
             transition: "all 0.3s ease",
-            flexShrink: 0,
-            background: "#f8fafc",
-            borderRight: "0.5px solid #e2e8f0",
-            display: "flex",
-            flexDirection: "column",
             zIndex: 20,
+            background: "#f8fafc",
           }}
         >
           <div
@@ -231,32 +230,31 @@ export default function Home() {
               alignItems: "center",
             }}
           >
-            {!sidebarCollapsed && (
-              <div
-                style={{
-                  fontWeight: 500,
-                  fontSize: 15,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  color: "#1e293b",
-                }}
-              >
-                <span style={{ fontSize: 20 }}>💰</span>
-                Gastos
-              </div>
-            )}
-
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            <div
               style={{
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                fontSize: "18px",
+                fontWeight: 500,
+                fontSize: 15,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                color: "#1e293b",
               }}
             >
-              {sidebarCollapsed ? "➡️" : "⬅️"}
+              <span style={{ fontSize: 20 }}>💰</span>
+              Gastos
+            </div>
+
+            <button
+              onClick={() => setSidebarOpen(false)}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 22,
+                color: "#64748b",
+              }}
+            >
+              ☰
             </button>
           </div>
 
@@ -306,21 +304,19 @@ export default function Home() {
                 letterSpacing: "0.06em",
               }}
             >
-              {sidebarCollapsed ? "👥" : "Por pessoa"}
+              "👥" : "Por pessoa"
             </span>
-            {!sidebarCollapsed && (
-              <span
-                style={{
-                  fontSize: 11,
-                  color: "#94a3b8",
-                  transform: pessoasOpen ? "rotate(0deg)" : "rotate(-90deg)",
-                  transition: "transform 0.2s ease",
-                  display: "inline-block",
-                }}
-              >
-                ▾
-              </span>
-            )}
+            <span
+              style={{
+                fontSize: 11,
+                color: "#94a3b8",
+                transform: pessoasOpen ? "rotate(0deg)" : "rotate(-90deg)",
+                transition: "transform 0.2s ease",
+                display: "inline-block",
+              }}
+            >
+              ▾
+            </span>
           </button>
 
           {/* Itens do submenu - só renderiza se pessoasOpen for true */}
@@ -383,7 +379,7 @@ export default function Home() {
                   fontSize: 20,
                   color: "#64748b",
                   padding: "2px 4px",
-                  display: "none",
+                  display: "block",
                 }}
                 aria-label="Abrir menu"
               >
@@ -560,7 +556,10 @@ export default function Home() {
                       onChange={(e) =>
                         setForm({ ...form, descricao: e.target.value })
                       }
-                      style={inputStyle}
+                      style={{
+                        ...inputStyle,
+                        width: "350px",
+                      }}
                     />
                   </div>
                   <div>
