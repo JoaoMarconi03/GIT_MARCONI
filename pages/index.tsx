@@ -69,7 +69,26 @@ export default function Home() {
   useEffect(() => {
     carregarGastos();
   }, []);
+  useEffect(() => {
+    const channel = supabase
+      .channel("gastos-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "gastos",
+        },
+        () => {
+          carregarGastos();
+        },
+      )
+      .subscribe();
 
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
   async function carregarGastos() {
     const { data, error } = await supabase
       .from("gastos")
