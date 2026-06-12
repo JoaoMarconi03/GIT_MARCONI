@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { supabase } from "../lib/supabase";
+import { useState, useEffect } from "react";
 
 const PESSOAS = ["Alba", "Evandro", "João"];
 const CATEGORIAS = ["Conta Fixa", "Gasto Variável", "Gasto Esporádico"];
@@ -16,7 +17,8 @@ type Gasto = {
   pessoa: string;
   categoria: string;
   descricao: string;
-  valor: string;
+  valor: number;
+  created_at?: string;
 };
 
 type View = "painel" | "novo" | "lista";
@@ -42,6 +44,7 @@ export default function Home() {
   const [view, setView] = useState<View>("painel");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [pessoasOpen, setPessoasOpen] = useState(true);
   const [form, setForm] = useState({
     pessoa: "",
     categoria: "",
@@ -49,13 +52,56 @@ export default function Home() {
     valor: "",
   });
 
-  function adicionarGasto() {
+  useEffect(() => {
+    carregarGastos();
+  }, []);
+
+  async function carregarGastos() {
+    const { data, error } = await supabase
+      .from("gastos")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setGastos(data || []);
+  }
+
+  async function adicionarGasto() {
     if (!form.pessoa || !form.categoria || !form.descricao || !form.valor) {
       alert("Preencha todos os campos");
       return;
     }
-    setGastos((prev) => [...prev, { id: Date.now(), ...form }]);
-    setForm({ pessoa: "", categoria: "", descricao: "", valor: "" });
+
+    const { data, error } = await supabase
+      .from("gastos")
+      .insert([
+        {
+          pessoa: form.pessoa,
+          categoria: form.categoria,
+          descricao: form.descricao,
+          valor: Number(form.valor),
+        },
+      ])
+      .select();
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao salvar");
+      return;
+    }
+
+    setGastos((prev) => [...prev, data[0]]);
+
+    setForm({
+      pessoa: "",
+      categoria: "",
+      descricao: "",
+      valor: "",
+    });
   }
 
   function remover(id: number) {
@@ -154,6 +200,7 @@ export default function Home() {
 
         {/* Sidebar */}
         <nav
+          className={sidebarOpen ? "sidebar sidebar-open" : "sidebar"}
           style={{
             width: sidebarCollapsed ? 70 : 220,
             transition: "all 0.3s ease",
@@ -162,19 +209,7 @@ export default function Home() {
             borderRight: "0.5px solid #e2e8f0",
             display: "flex",
             flexDirection: "column",
-            position: "absolute" in {} ? "relative" : undefined,
-            // Responsive: on small screens becomes absolute overlay
             zIndex: 20,
-            ...(typeof window !== "undefined" && window.innerWidth < 540
-              ? {
-                  position: "absolute" as const,
-                  height: "100%",
-                  transform: sidebarOpen
-                    ? "translateX(0)"
-                    : "translateX(-100%)",
-                  transition: "transform 0.25s",
-                }
-              : {}),
           }}
         >
           <div
@@ -238,28 +273,60 @@ export default function Home() {
             setFiltro("");
           })}
 
-          <div
+          {/* Cabeçalho do submenu "Por pessoa" - clicável para esconder/mostrar */}
+          <button
+            onClick={() => setPessoasOpen((v) => !v)}
             style={{
-              fontSize: 11,
-              fontWeight: 500,
-              color: "#94a3b8",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
               padding: "14px 16px 6px",
             }}
           >
-            Por pessoa
-          </div>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              {sidebarCollapsed ? "👥" : "Por pessoa"}
+            </span>
+            {!sidebarCollapsed && (
+              <span
+                style={{
+                  fontSize: 11,
+                  color: "#94a3b8",
+                  transform: pessoasOpen ? "rotate(0deg)" : "rotate(-90deg)",
+                  transition: "transform 0.2s ease",
+                  display: "inline-block",
+                }}
+              >
+                ▾
+              </span>
+            )}
+          </button>
 
-          {navItem("👥 Todos", !filtro && view !== "novo", () => {
-            setFiltro("");
-            setView("lista");
-          })}
-          {PESSOAS.map((p) =>
-            navItem(`👤 ${p}`, filtro === p, () => {
-              setFiltro(p);
-              setView("lista");
-            }),
+          {/* Itens do submenu - só renderiza se pessoasOpen for true */}
+          {pessoasOpen && (
+            <>
+              {navItem("👥 Todos", !filtro && view !== "novo", () => {
+                setFiltro("");
+                setView("lista");
+              })}
+              {PESSOAS.map((p) =>
+                navItem(`👤 ${p}`, filtro === p, () => {
+                  setFiltro(p);
+                  setView("lista");
+                }),
+              )}
+            </>
           )}
 
           <div
@@ -298,6 +365,7 @@ export default function Home() {
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="hamburger-btn"
                 style={{
                   background: "none",
                   border: "none",
@@ -305,9 +373,8 @@ export default function Home() {
                   fontSize: 20,
                   color: "#64748b",
                   padding: "2px 4px",
-                  display: "none", // visible via media query via inline
+                  display: "none",
                 }}
-                className="hamburger-btn"
                 aria-label="Abrir menu"
               >
                 ☰
@@ -717,7 +784,8 @@ export default function Home() {
       <style>{`
         @media (max-width: 540px) {
           .hamburger-btn { display: block !important; }
-          nav { position: absolute !important; height: 100% !important; transition: transform 0.25s !important; }
+          .sidebar { position: absolute !important; height: 100% !important; transform: translateX(-100%); transition: transform 0.25s !important; }
+          .sidebar-open { transform: translateX(0) !important; }
         }
         button:hover { opacity: 0.85; }
       `}</style>
