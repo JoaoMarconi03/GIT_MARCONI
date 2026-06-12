@@ -552,10 +552,7 @@ export default function Home() {
                       onChange={(e) =>
                         setForm({ ...form, descricao: e.target.value })
                       }
-                      style={{
-                        ...inputStyle,
-                        width: "350px",
-                      }}
+                      style={inputStyle}
                     />
                   </div>
                   <div>
