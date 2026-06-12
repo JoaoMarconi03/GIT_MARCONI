@@ -165,6 +165,7 @@ export default function Home() {
     border: "0.5px solid #d1d5db",
     fontSize: 14,
     width: "100%",
+    boxSizing: "border-box",
     background: "#f8fafc",
     color: "#1e293b",
     fontFamily: "inherit",
@@ -483,13 +484,8 @@ export default function Home() {
                 >
                   Novo gasto
                 </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 10,
-                  }}
-                >
+
+                <div className="form-grid">
                   <div>
                     <label
                       style={{
@@ -794,13 +790,25 @@ export default function Home() {
 
       {/* Responsive styles */}
       <style>{`
-        @media (max-width: 540px) {
-          .hamburger-btn { display: block !important; }
-          .sidebar { position: absolute !important; height: 100% !important; transform: translateX(-100%); transition: transform 0.25s !important; }
-          .sidebar-open { transform: translateX(0) !important; }
-        }
-        button:hover { opacity: 0.85; }
-      `}</style>
+  .form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+`}</style>
+
       {modalExcluir && (
         <div
           style={{
