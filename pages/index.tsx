@@ -1,10 +1,11 @@
 "use client";
 
+import { finalizeBundlerFromConfig } from "next/dist/lib/bundler";
 import { supabase } from "../lib/supabase";
 import { useState, useEffect } from "react";
 
 const PESSOAS = ["Alba", "Evandro", "João"];
-const CATEGORIAS = ["Conta Fixa", "Gasto Variável", "Gasto Esporádico"];
+const CATEGORIAS = ["Salário", "Conta Fixa", "Gasto Variável"];
 
 const AVATAR_COLORS: Record<string, [string, string]> = {
   Alba: ["#F5C4B3", "#993C1D"],
@@ -14,6 +15,7 @@ const AVATAR_COLORS: Record<string, [string, string]> = {
 
 type Gasto = {
   id: number;
+  tipo: string;
   pessoa: string;
   categoria: string;
   descricao: string;
@@ -39,14 +41,25 @@ function badgeStyle(cat: string) {
 }
 
 export default function Home() {
+  //mensagem de sucesso
+  const [mensagemSucesso, setMensagemSucesso] = useState(false);
+  //
   const [gastoParaExcluir, setGastoParaExcluir] = useState<number | null>(null);
+  //
   const [modalExcluir, setModalExcluir] = useState(false);
+  //
   const [gastos, setGastos] = useState<Gasto[]>([]);
+  //
   const [filtro, setFiltro] = useState("");
+  //
   const [view, setView] = useState<View>("painel");
+  //
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  //
   const [pessoasOpen, setPessoasOpen] = useState(true);
+  //
   const [form, setForm] = useState({
+    tipo: "",
     pessoa: "",
     categoria: "",
     descricao: "",
@@ -77,10 +90,18 @@ export default function Home() {
       return;
     }
 
+    const tipo =
+      form.descricao.toLowerCase().includes("salário") ||
+      form.descricao.toLowerCase().includes("salario") ||
+      form.descricao.toLowerCase().includes("aluguel")
+        ? "Entrada"
+        : "Saída";
+
     const { data, error } = await supabase
       .from("gastos")
       .insert([
         {
+          tipo,
           pessoa: form.pessoa,
           categoria: form.categoria,
           descricao: form.descricao,
@@ -97,7 +118,14 @@ export default function Home() {
 
     setGastos((prev) => [...prev, data[0]]);
 
+    setMensagemSucesso(true);
+
+    setTimeout(() => {
+      setMensagemSucesso(false);
+    }, 3000);
+
     setForm({
+      tipo: "",
       pessoa: "",
       categoria: "",
       descricao: "",
@@ -409,6 +437,23 @@ export default function Home() {
           </div>
 
           <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
+            {mensagemSucesso && (
+              <div
+                style={{
+                  background: "#dcfce7",
+                  color: "#166534",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  marginBottom: "16px",
+                  border: "1px solid #86efac",
+                  fontWeight: 500,
+                }}
+              >
+                ✅ Gasto adicionado com sucesso!
+              </div>
+            )}
+
+            {/* Metric Cards */}
             {/* Metric Cards */}
             <div
               style={{
@@ -650,25 +695,30 @@ export default function Home() {
                 >
                   <thead>
                     <tr>
-                      {["Pessoa", "Categoria", "Descrição", "Valor", ""].map(
-                        (h) => (
-                          <th
-                            key={h}
-                            style={{
-                              padding: "10px 12px",
-                              textAlign: h === "Valor" ? "right" : "left",
-                              fontSize: 12,
-                              fontWeight: 500,
-                              color: "#94a3b8",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.04em",
-                              borderBottom: "0.5px solid #e2e8f0",
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ),
-                      )}
+                      {[
+                        "Tipo",
+                        "Pessoa",
+                        "Categoria",
+                        "Descrição",
+                        "Valor",
+                        "",
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            padding: "10px 12px",
+                            textAlign: h === "Valor" ? "right" : "left",
+                            fontSize: 12,
+                            fontWeight: 500,
+                            color: "#94a3b8",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                            borderBottom: "0.5px solid #e2e8f0",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -679,6 +729,27 @@ export default function Home() {
                       ];
                       return (
                         <tr key={g.id}>
+                          <td
+                            style={{
+                              padding: "11px 12px",
+                              borderBottom: "0.5px solid #f1f5f9",
+                            }}
+                          >
+                            <span
+                              style={{
+                                background:
+                                  g.tipo === "Entrada" ? "#DCFCE7" : "#FEE2E2",
+                                color:
+                                  g.tipo === "Entrada" ? "#166534" : "#991B1B",
+                                padding: "3px 10px",
+                                borderRadius: 20,
+                                fontSize: 12,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {g.tipo}
+                            </span>
+                          </td>
                           <td
                             style={{
                               padding: "11px 12px",
