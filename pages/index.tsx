@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 import { useState, useEffect } from "react";
 
 const PESSOAS = ["Alba", "Evandro", "João"];
-const CATEGORIAS = ["Salário", "Conta Fixa", "Gasto Variável"];
+const CATEGORIAS = ["Salário", "Aluguel", "Conta Fixa", "Gasto Variável"];
 
 const AVATAR_COLORS: Record<string, [string, string]> = {
   Alba: ["#F5C4B3", "#993C1D"],
@@ -90,10 +90,12 @@ export default function Home() {
       return;
     }
 
+    const categorias = form.categoria.toLowerCase();
+
     const tipo =
-      form.descricao.toLowerCase().includes("salário") ||
-      form.descricao.toLowerCase().includes("salario") ||
-      form.descricao.toLowerCase().includes("aluguel")
+      categorias.includes("salário") ||
+      categorias.includes("salario") ||
+      categorias.includes("aluguel")
         ? "Entrada"
         : "Saída";
 
