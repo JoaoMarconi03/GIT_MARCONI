@@ -230,7 +230,7 @@ export default function Auth() {
           <div className="auth-orb orb2 auth-left-orb" />
           <div className="auth-left-content">
             <p className="auth-brand">
-              meu<span>App</span>
+              Organização<span>Financeira</span>
             </p>
             <p className="auth-tagline">
               Acesse sua conta e continue de onde parou. Seguro, rápido e sempre
@@ -243,7 +243,7 @@ export default function Auth() {
         <div className="auth-right">
           <div className="auth-card">
             <span className="auth-logo-mobile">
-              meu<span>App</span>
+              Organização<span>Financeira</span>
             </span>
 
             {/* TABS */}

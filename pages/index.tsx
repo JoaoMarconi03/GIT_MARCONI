@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
-const PESSOAS = ["Alba", "Evandro", "João", "Karol"];
+const PESSOAS = ["Alba", "Evandro", "João"];
 const CATEGORIAS = ["Salário", "Aluguel", "Conta Fixa", "Gasto Variável"];
 
 const AVATAR_COLORS: Record<string, [string, string]> = {
@@ -385,7 +385,7 @@ export default function Home() {
         {/* NAVBAR */}
         <nav className="navbar">
           <div className="nav-brand">
-            meu<span>App</span>
+            Organização<span>Financeira</span>
           </div>
 
           <div className={`nav-tabs ${menuOpen ? "open" : ""}`}>
