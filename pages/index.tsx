@@ -1,10 +1,9 @@
 "use client";
 
-import { finalizeBundlerFromConfig } from "next/dist/lib/bundler";
-import { supabase } from "../lib/supabase";
 import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
-const PESSOAS = ["Alba", "Evandro", "João"];
+const PESSOAS = ["Alba", "Evandro", "João", "Karol"];
 const CATEGORIAS = ["Salário", "Aluguel", "Conta Fixa", "Gasto Variável"];
 
 const AVATAR_COLORS: Record<string, [string, string]> = {
@@ -23,7 +22,7 @@ type Gasto = {
   created_at?: string;
 };
 
-type View = "painel" | "novo" | "lista";
+type Tab = "painel" | "entradas" | "saidas";
 
 function fmt(v: number) {
   return "R$ " + v.toFixed(2).replace(".", ",");
@@ -33,55 +32,52 @@ function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 
-function badgeStyle(cat: string) {
-  if (cat === "Conta Fixa") return { background: "#E6F1FB", color: "#0C447C" };
-  if (cat === "Gasto Variável")
-    return { background: "#EAF3DE", color: "#27500A" };
-  return { background: "#FAEEDA", color: "#633806" };
-}
-
 export default function Home() {
-  //mensagem de sucesso
   const [mensagemSucesso, setMensagemSucesso] = useState(false);
-  //
   const [gastoParaExcluir, setGastoParaExcluir] = useState<number | null>(null);
-  //
   const [modalExcluir, setModalExcluir] = useState(false);
-  //
   const [gastos, setGastos] = useState<Gasto[]>([]);
-  //
-  const [filtro, setFiltro] = useState("");
-  //
-  const [view, setView] = useState<View>("painel");
-  //
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  //
-  const [pessoasOpen, setPessoasOpen] = useState(true);
-  //
+  const [tab, setTab] = useState<Tab>("painel");
+  const [usuario, setUsuario] = useState<any>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+
   const [form, setForm] = useState({
-    tipo: "",
     pessoa: "",
     categoria: "",
     descricao: "",
     valor: "",
   });
 
+  // Verifica login + carrega usuário
+  useEffect(() => {
+    async function init() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUsuario(user);
+    }
+    init();
+  }, []);
+
   useEffect(() => {
     carregarGastos();
-  }, []);
-  useEffect(() => {
+
     const channel = supabase
       .channel("gastos-realtime")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "gastos",
-        },
-        () => {
-          carregarGastos();
-        },
+        { event: "*", schema: "public", table: "gastos" },
+        () => carregarGastos(),
       )
       .subscribe();
 
@@ -89,18 +85,19 @@ export default function Home() {
       supabase.removeChannel(channel);
     };
   }, []);
+
   async function carregarGastos() {
     const { data, error } = await supabase
       .from("gastos")
       .select("*")
       .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error(error);
-      return;
-    }
-
+    if (error) return console.error(error);
     setGastos(data || []);
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
   }
 
   async function adicionarGasto() {
@@ -108,13 +105,9 @@ export default function Home() {
       alert("Preencha todos os campos");
       return;
     }
-
-    const categorias = form.categoria.toLowerCase();
-
+    const c = form.categoria.toLowerCase();
     const tipo =
-      categorias.includes("salário") ||
-      categorias.includes("salario") ||
-      categorias.includes("aluguel")
+      c.includes("salário") || c.includes("salario") || c.includes("aluguel")
         ? "Entrada"
         : "Saída";
 
@@ -137,731 +130,525 @@ export default function Home() {
       return;
     }
 
-    setGastos((prev) => [...prev, data[0]]);
-
+    setGastos((prev) => [data[0], ...prev]);
     setMensagemSucesso(true);
-
-    setTimeout(() => {
-      setMensagemSucesso(false);
-    }, 3000);
-
-    setForm({
-      tipo: "",
-      pessoa: "",
-      categoria: "",
-      descricao: "",
-      valor: "",
-    });
+    setTimeout(() => setMensagemSucesso(false), 3000);
+    setForm({ pessoa: "", categoria: "", descricao: "", valor: "" });
+    setShowForm(false);
   }
 
   async function remover(id: number) {
     const { error } = await supabase.from("gastos").delete().eq("id", id);
-
     if (error) {
       console.error(error);
       alert("Erro ao excluir");
       return;
     }
-
     await carregarGastos();
   }
 
-  const lista = filtro ? gastos.filter((g) => g.pessoa === filtro) : gastos;
-  const totalGeral = gastos.reduce((a, g) => a + Number(g.valor), 0);
-  const totalFixas = gastos
-    .filter((g) => g.categoria === "Conta Fixa")
+  // Filtro pela aba
+  const lista =
+    tab === "entradas"
+      ? gastos.filter((g) => g.tipo === "Entrada")
+      : tab === "saidas"
+        ? gastos.filter((g) => g.tipo === "Saída")
+        : gastos;
+
+  const totalEntradas = gastos
+    .filter((g) => g.tipo === "Entrada")
     .reduce((a, g) => a + Number(g.valor), 0);
-  const totalVariaveis = gastos
-    .filter((g) => g.categoria === "Gasto Variável")
+  const totalSaidas = gastos
+    .filter((g) => g.tipo === "Saída")
     .reduce((a, g) => a + Number(g.valor), 0);
+  const saldo = totalEntradas - totalSaidas;
 
-  const viewTitles: Record<View, string> = {
-    painel: "Painel",
-    novo: "Novo gasto",
-    lista: "Todos os gastos",
-  };
-
-  const navItem = (label: string, active: boolean, onClick: () => void) => (
-    <button
-      key={label}
-      onClick={() => {
-        onClick();
-        setSidebarOpen(false);
-      }}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "9px 16px",
-        fontSize: 14,
-        cursor: "pointer",
-        background: active ? "#fff" : "transparent",
-        color: active ? "#185FA5" : "#64748b",
-        fontWeight: active ? 500 : 400,
-        border: "none",
-        borderRight: active ? "2px solid #185FA5" : "2px solid transparent",
-        width: "100%",
-        textAlign: "left",
-      }}
-    >
-      {label}
-    </button>
-  );
-
-  const inputStyle: React.CSSProperties = {
-    padding: "9px 11px",
-    borderRadius: 8,
-    border: "0.5px solid #d1d5db",
-    fontSize: 14,
-    width: "100%",
-    boxSizing: "border-box",
-    background: "#f8fafc",
-    color: "#1e293b",
-    fontFamily: "inherit",
-    outline: "none",
-  };
+  const nomeUsuario =
+    usuario?.user_metadata?.full_name || usuario?.email?.split("@")[0] || "";
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f1f5f9",
-        padding: "16px",
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1100,
-          margin: "0 auto",
-          display: "flex",
-          border: "0.5px solid #e2e8f0",
-          borderRadius: 14,
-          overflow: "hidden",
-          minHeight: "85vh",
-          background: "#fff",
-          position: "relative",
-        }}
-      >
-        {/* Overlay mobile */}
-        {sidebarOpen && (
-          <div
-            onClick={() => setSidebarOpen(false)}
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(0,0,0,0.3)",
-              zIndex: 10,
-            }}
-          />
-        )}
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        {/* Sidebar */}
-        <nav
-          className={sidebarOpen ? "sidebar sidebar-open" : "sidebar"}
-          style={{
-            position: "absolute",
-            left: sidebarOpen ? 0 : -220,
-            top: 0,
-            height: "100%",
-            width: 220,
-            transition: "all 0.3s ease",
-            zIndex: 20,
-            background: "#f8fafc",
-          }}
-        >
-          <div
-            style={{
-              padding: "18px 16px 12px",
-              borderBottom: "0.5px solid #e2e8f0",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div
-              style={{
-                fontWeight: 500,
-                fontSize: 15,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                color: "#1e293b",
+        .app-root {
+          min-height: 100vh;
+          background: #0f0f11;
+          color: #f1f5f9;
+          font-family: 'Inter', sans-serif;
+        }
+
+        /* NAVBAR */
+        .navbar {
+          position: sticky; top: 0; z-index: 50;
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 0.85rem 1.5rem;
+          background: rgba(15,15,17,0.85);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid #1f1f28;
+        }
+        .nav-brand {
+          font-size: 1.15rem; font-weight: 700; color: #fff;
+          letter-spacing: -0.3px;
+        }
+        .nav-brand span { color: #818cf8; }
+
+        .nav-tabs { display: flex; gap: 0.25rem; }
+        .nav-tab {
+          padding: 0.5rem 1rem; border: none; background: transparent;
+          color: #64748b; font-size: 0.875rem; font-weight: 500;
+          border-radius: 8px; cursor: pointer; transition: all 0.2s;
+          font-family: inherit;
+        }
+        .nav-tab:hover { color: #e2e8f0; background: #1c1c24; }
+        .nav-tab.active { color: #fff; background: #1c1c24; }
+
+        .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+        .nav-user {
+          display: flex; align-items: center; gap: 0.5rem;
+          padding: 0.4rem 0.85rem; border-radius: 999px;
+          background: #1c1c24; border: 1px solid #2d2d3a;
+          font-size: 0.85rem; color: #e2e8f0;
+        }
+        .nav-user-avatar {
+          width: 26px; height: 26px; border-radius: 50%;
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 0.7rem; font-weight: 600; color: #fff;
+        }
+        .nav-logout {
+          background: none; border: none; color: #64748b;
+          font-size: 0.8rem; cursor: pointer; padding: 0.4rem 0.6rem;
+          border-radius: 6px;
+        }
+        .nav-logout:hover { color: #f87171; background: #1c1c24; }
+
+        .btn-cta {
+          padding: 0.5rem 1rem; border-radius: 8px; border: none;
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          color: #fff; font-size: 0.85rem; font-weight: 600;
+          cursor: pointer; box-shadow: 0 4px 12px rgba(99,102,241,0.35);
+        }
+
+        .hamburger {
+          display: none;
+          background: none; border: none; color: #e2e8f0;
+          font-size: 1.3rem; cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+          .nav-tabs { display: none; }
+          .nav-tabs.open {
+            display: flex; flex-direction: column;
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: #0f0f11; border-bottom: 1px solid #1f1f28;
+            padding: 0.5rem;
+          }
+          .hamburger { display: block; }
+          .nav-user span.name { display: none; }
+        }
+
+        /* MAIN */
+        .container {
+          max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem;
+        }
+        .page-title {
+          font-size: 1.75rem; font-weight: 700; color: #f1f5f9;
+          margin-bottom: 0.3rem; letter-spacing: -0.5px;
+        }
+        .page-sub { color: #64748b; font-size: 0.9rem; margin-bottom: 2rem; }
+
+        .success-msg {
+          padding: 0.75rem 1rem; border-radius: 10px; margin-bottom: 1.25rem;
+          background: rgba(34,197,94,0.1); color: #4ade80;
+          border: 1px solid rgba(34,197,94,0.2); font-size: 0.875rem;
+        }
+
+        /* CARDS */
+        .metrics {
+          display: grid; gap: 1rem; margin-bottom: 2rem;
+          grid-template-columns: repeat(3, 1fr);
+        }
+        @media (max-width: 700px) { .metrics { grid-template-columns: 1fr; } }
+        .metric-card {
+          background: linear-gradient(180deg, #1c1c24 0%, #16161c 100%);
+          border: 1px solid #2d2d3a; border-radius: 14px;
+          padding: 1.25rem 1.5rem;
+        }
+        .metric-label { font-size: 0.78rem; color: #64748b; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .metric-value { font-size: 1.5rem; font-weight: 700; }
+
+        /* PANEL */
+        .panel {
+          background: #16161c; border: 1px solid #2d2d3a;
+          border-radius: 14px; padding: 1.5rem; margin-bottom: 1.5rem;
+        }
+        .panel-header {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 1.25rem;
+        }
+        .panel-title { font-size: 1rem; font-weight: 600; color: #f1f5f9; }
+
+        .form-grid {
+          display: grid; gap: 0.9rem;
+          grid-template-columns: repeat(4, 1fr);
+        }
+        @media (max-width: 900px) { .form-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+
+        .field-label { display: block; font-size: 0.78rem; color: #94a3b8; margin-bottom: 0.4rem; font-weight: 500; }
+        .field-input, .field-select {
+          width: 100%; padding: 0.7rem 0.85rem; border-radius: 9px;
+          border: 1px solid #2d2d3a; background: #1c1c24;
+          color: #f1f5f9; font-size: 0.875rem; outline: none;
+          font-family: inherit; transition: border-color 0.2s;
+        }
+        .field-input::placeholder { color: #475569; }
+        .field-input:focus, .field-select:focus { border-color: #6366f1; }
+
+        .btn-primary {
+          padding: 0.7rem 1.25rem; border-radius: 9px; border: none;
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          color: #fff; font-size: 0.875rem; font-weight: 600;
+          cursor: pointer; box-shadow: 0 4px 12px rgba(99,102,241,0.35);
+        }
+        .btn-ghost {
+          padding: 0.7rem 1.25rem; border-radius: 9px;
+          background: transparent; border: 1px solid #2d2d3a;
+          color: #e2e8f0; font-size: 0.875rem; font-weight: 500;
+          cursor: pointer;
+        }
+        .btn-ghost:hover { border-color: #6366f1; }
+
+        /* TABLE */
+        table { width: 100%; border-collapse: collapse; }
+        thead th {
+          text-align: left; font-size: 0.72rem; font-weight: 600;
+          color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;
+          padding: 0.6rem 0.75rem; border-bottom: 1px solid #2d2d3a;
+        }
+        tbody td {
+          padding: 0.85rem 0.75rem; font-size: 0.875rem;
+          border-bottom: 1px solid #1f1f28; color: #e2e8f0;
+        }
+        tbody tr:hover { background: #1a1a22; }
+
+        .tag {
+          display: inline-block; padding: 0.2rem 0.6rem;
+          border-radius: 999px; font-size: 0.72rem; font-weight: 500;
+        }
+        .tag-entrada { background: rgba(34,197,94,0.12); color: #4ade80; }
+        .tag-saida { background: rgba(239,68,68,0.12); color: #f87171; }
+        .tag-cat { background: #1c1c24; color: #94a3b8; border: 1px solid #2d2d3a; }
+
+        .pessoa-cell { display: flex; align-items: center; gap: 0.5rem; }
+        .avatar {
+          width: 28px; height: 28px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 0.72rem; font-weight: 600;
+        }
+
+        .empty {
+          text-align: center; padding: 3rem 1rem; color: #475569;
+          font-size: 0.9rem;
+        }
+
+        .icon-btn {
+          background: none; border: none; cursor: pointer;
+          color: #64748b; font-size: 1rem; padding: 0.35rem 0.5rem;
+          border-radius: 6px;
+        }
+        .icon-btn:hover { color: #f87171; background: #1c1c24; }
+
+        /* MODAL */
+        .modal-overlay {
+          position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 100; padding: 1rem;
+        }
+        .modal {
+          background: #16161c; border: 1px solid #2d2d3a;
+          border-radius: 14px; padding: 1.75rem; max-width: 380px; width: 100%;
+        }
+        .modal h3 { font-size: 1.1rem; color: #f1f5f9; margin-bottom: 0.5rem; }
+        .modal p { color: #94a3b8; font-size: 0.875rem; margin-bottom: 1.25rem; }
+        .modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; }
+        .btn-danger {
+          padding: 0.6rem 1.1rem; border-radius: 8px; border: none;
+          background: #dc2626; color: #fff; font-size: 0.85rem; font-weight: 600;
+          cursor: pointer;
+        }
+      `}</style>
+
+      <div className="app-root">
+        {/* NAVBAR */}
+        <nav className="navbar">
+          <div className="nav-brand">
+            meu<span>App</span>
+          </div>
+
+          <div className={`nav-tabs ${menuOpen ? "open" : ""}`}>
+            <button
+              className={`nav-tab ${tab === "painel" ? "active" : ""}`}
+              onClick={() => {
+                setTab("painel");
+                setMenuOpen(false);
               }}
             >
-              <span style={{ fontSize: 20 }}>💰</span>
-              Gastos
-            </div>
-
+              Painel geral
+            </button>
             <button
-              onClick={() => setSidebarOpen(false)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontSize: 22,
-                color: "#64748b",
+              className={`nav-tab ${tab === "entradas" ? "active" : ""}`}
+              onClick={() => {
+                setTab("entradas");
+                setMenuOpen(false);
               }}
+            >
+              Entradas
+            </button>
+            <button
+              className={`nav-tab ${tab === "saidas" ? "active" : ""}`}
+              onClick={() => {
+                setTab("saidas");
+                setMenuOpen(false);
+              }}
+            >
+              Saídas
+            </button>
+          </div>
+
+          <div className="nav-right">
+            {usuario ? (
+              <>
+                <div className="nav-user">
+                  <div className="nav-user-avatar">
+                    {initials(nomeUsuario || "U")}
+                  </div>
+                  <span className="name">{nomeUsuario}</span>
+                </div>
+                <button className="nav-logout" onClick={logout}>
+                  Sair
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn-cta"
+                onClick={() => (window.location.href = "/login")}
+              >
+                Entrar
+              </button>
+            )}
+            <button
+              className="hamburger"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Menu"
             >
               ☰
             </button>
           </div>
-
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 500,
-              color: "#94a3b8",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              padding: "14px 16px 6px",
-            }}
-          >
-            Menu
-          </div>
-
-          {navItem("📊 Painel", view === "painel" && !filtro, () => {
-            setView("painel");
-            setFiltro("");
-          })}
-          {navItem("➕ Novo gasto", view === "novo", () => setView("novo"))}
-          {navItem("📋 Todos os gastos", view === "lista" && !filtro, () => {
-            setView("lista");
-            setFiltro("");
-          })}
-
-          {/* Cabeçalho do submenu "Por pessoa" - clicável para esconder/mostrar */}
-          <button
-            onClick={() => setPessoasOpen((v) => !v)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: "14px 16px 6px",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 500,
-                color: "#94a3b8",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
-            >
-              "👥" : "Por pessoa"
-            </span>
-            <span
-              style={{
-                fontSize: 11,
-                color: "#94a3b8",
-                transform: pessoasOpen ? "rotate(0deg)" : "rotate(-90deg)",
-                transition: "transform 0.2s ease",
-                display: "inline-block",
-              }}
-            >
-              ▾
-            </span>
-          </button>
-
-          {/* Itens do submenu - só renderiza se pessoasOpen for true */}
-          {pessoasOpen && (
-            <>
-              {navItem("👥 Todos", !filtro && view !== "novo", () => {
-                setFiltro("");
-                setView("lista");
-              })}
-              {PESSOAS.map((p) =>
-                navItem(`👤 ${p}`, filtro === p, () => {
-                  setFiltro(p);
-                  setView("lista");
-                }),
-              )}
-            </>
-          )}
-
-          <div
-            style={{
-              marginTop: "auto",
-              padding: "14px 16px",
-              borderTop: "0.5px solid #e2e8f0",
-              fontSize: 12,
-              color: "#94a3b8",
-            }}
-          >
-            Dados salvos na sessão
-          </div>
         </nav>
 
-        {/* Main */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            minWidth: 0,
-          }}
-        >
-          {/* Topbar */}
-          <div
-            style={{
-              padding: "13px 20px",
-              borderBottom: "0.5px solid #e2e8f0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              background: "#fff",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="hamburger-btn"
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 20,
-                  color: "#64748b",
-                  padding: "2px 4px",
-                  display: "block",
-                }}
-                aria-label="Abrir menu"
-              >
-                ☰
-              </button>
-              <span style={{ fontWeight: 500, fontSize: 15 }}>
-                {filtro ? `Gastos de ${filtro}` : viewTitles[view]}
-              </span>
+        {/* CONTENT */}
+        <main className="container">
+          <h1 className="page-title">
+            {tab === "painel" && "Painel geral"}
+            {tab === "entradas" && "Entradas"}
+            {tab === "saidas" && "Saídas"}
+          </h1>
+          <p className="page-sub">
+            {nomeUsuario
+              ? `Olá, ${nomeUsuario} 👋`
+              : "Visão geral dos seus gastos"}
+          </p>
+
+          {mensagemSucesso && (
+            <div className="success-msg">✅ Gasto adicionado com sucesso!</div>
+          )}
+
+          {/* METRICS */}
+          <div className="metrics">
+            <div className="metric-card">
+              <div className="metric-label">Entradas</div>
+              <div className="metric-value" style={{ color: "#4ade80" }}>
+                {fmt(totalEntradas)}
+              </div>
             </div>
-            {filtro && (
-              <button
-                onClick={() => setFiltro("")}
-                style={{
-                  fontSize: 12,
-                  color: "#185FA5",
-                  background: "#E6F1FB",
-                  border: "none",
-                  borderRadius: 20,
-                  padding: "4px 12px",
-                  cursor: "pointer",
-                }}
+            <div className="metric-card">
+              <div className="metric-label">Saídas</div>
+              <div className="metric-value" style={{ color: "#f87171" }}>
+                {fmt(totalSaidas)}
+              </div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Saldo</div>
+              <div
+                className="metric-value"
+                style={{ color: saldo >= 0 ? "#818cf8" : "#f87171" }}
               >
-                ✕ Limpar filtro
-              </button>
-            )}
+                {fmt(saldo)}
+              </div>
+            </div>
           </div>
 
-          <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
-            {mensagemSucesso && (
-              <div
-                style={{
-                  background: "#dcfce7",
-                  color: "#166534",
-                  padding: "12px",
-                  borderRadius: "8px",
-                  marginBottom: "16px",
-                  border: "1px solid #86efac",
-                  fontWeight: 500,
-                }}
+          {/* FORM */}
+          <div className="panel">
+            <div className="panel-header">
+              <div className="panel-title">Novo lançamento</div>
+              <button
+                className="btn-ghost"
+                onClick={() => setShowForm((v) => !v)}
               >
-                ✅ Gasto adicionado com sucesso!
-              </div>
-            )}
-
-            {/* Metric Cards */}
-            {/* Metric Cards */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                gap: 10,
-                marginBottom: 20,
-              }}
-            >
-              {[
-                {
-                  label: "Total geral",
-                  value: fmt(totalGeral),
-                  color: "#0F6E56",
-                },
-                {
-                  label: "Nº de gastos",
-                  value: String(gastos.length),
-                  color: "#185FA5",
-                },
-                {
-                  label: "Contas fixas",
-                  value: fmt(totalFixas),
-                  color: "#1e293b",
-                },
-                {
-                  label: "Variáveis",
-                  value: fmt(totalVariaveis),
-                  color: "#854F0B",
-                },
-              ].map((c) => (
-                <div
-                  key={c.label}
-                  style={{
-                    background: "#f8fafc",
-                    borderRadius: 8,
-                    padding: "14px 16px",
-                  }}
-                >
-                  <div
-                    style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}
-                  >
-                    {c.label}
-                  </div>
-                  <div
-                    style={{ fontSize: 22, fontWeight: 500, color: c.color }}
-                  >
-                    {c.value}
-                  </div>
-                </div>
-              ))}
+                {showForm ? "Cancelar" : "+ Adicionar"}
+              </button>
             </div>
 
-            {/* Form */}
-            {view !== "lista" && (
-              <div
-                style={{
-                  border: "0.5px solid #e2e8f0",
-                  borderRadius: 12,
-                  padding: 18,
-                  marginBottom: 16,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: "#94a3b8",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    marginBottom: 14,
-                  }}
-                >
-                  Novo gasto
-                </div>
-
+            {showForm && (
+              <>
                 <div className="form-grid">
                   <div>
-                    <label
-                      style={{
-                        fontSize: 12,
-                        color: "#64748b",
-                        display: "block",
-                        marginBottom: 5,
-                      }}
-                    >
-                      Pessoa
-                    </label>
+                    <label className="field-label">Pessoa</label>
                     <select
+                      className="field-select"
                       value={form.pessoa}
                       onChange={(e) =>
                         setForm({ ...form, pessoa: e.target.value })
                       }
-                      style={inputStyle}
                     >
                       <option value="">Selecione</option>
                       {PESSOAS.map((p) => (
-                        <option key={p}>{p}</option>
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label
-                      style={{
-                        fontSize: 12,
-                        color: "#64748b",
-                        display: "block",
-                        marginBottom: 5,
-                      }}
-                    >
-                      Categoria
-                    </label>
+                    <label className="field-label">Categoria</label>
                     <select
+                      className="field-select"
                       value={form.categoria}
                       onChange={(e) =>
                         setForm({ ...form, categoria: e.target.value })
                       }
-                      style={inputStyle}
                     >
                       <option value="">Selecione</option>
                       {CATEGORIAS.map((c) => (
-                        <option key={c}>{c}</option>
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label
-                      style={{
-                        fontSize: 12,
-                        color: "#64748b",
-                        display: "block",
-                        marginBottom: 5,
-                      }}
-                    >
-                      Descrição
-                    </label>
+                    <label className="field-label">Descrição</label>
                     <input
-                      type="text"
-                      placeholder="Ex: Aluguel, mercado…"
+                      className="field-input"
+                      placeholder="ex: Mercado"
                       value={form.descricao}
                       onChange={(e) =>
                         setForm({ ...form, descricao: e.target.value })
                       }
-                      style={inputStyle}
                     />
                   </div>
                   <div>
-                    <label
-                      style={{
-                        fontSize: 12,
-                        color: "#64748b",
-                        display: "block",
-                        marginBottom: 5,
-                      }}
-                    >
-                      Valor (R$)
-                    </label>
+                    <label className="field-label">Valor (R$)</label>
                     <input
+                      className="field-input"
                       type="number"
                       placeholder="0,00"
-                      min={0}
-                      step={0.01}
                       value={form.valor}
                       onChange={(e) =>
                         setForm({ ...form, valor: e.target.value })
                       }
-                      style={inputStyle}
                     />
                   </div>
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    marginTop: 14,
-                  }}
-                >
-                  <button
-                    onClick={adicionarGasto}
-                    style={{
-                      background: "#185FA5",
-                      color: "#fff",
-                      border: "none",
-                      padding: "10px 22px",
-                      borderRadius: 8,
-                      fontWeight: 500,
-                      fontSize: 14,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    + Adicionar gasto
+                <div style={{ marginTop: "1.1rem", textAlign: "right" }}>
+                  <button className="btn-primary" onClick={adicionarGasto}>
+                    Salvar lançamento
                   </button>
                 </div>
-              </div>
+              </>
             )}
+          </div>
 
-            {/* Table */}
-            <div
-              style={{
-                border: "0.5px solid #e2e8f0",
-                borderRadius: 12,
-                padding: 18,
-                overflowX: "auto",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "#94a3b8",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  marginBottom: 14,
-                }}
-              >
-                {filtro ? `Gastos de ${filtro}` : "Gastos registrados"}
+          {/* TABLE */}
+          <div className="panel">
+            <div className="panel-header">
+              <div className="panel-title">
+                {tab === "painel" && "Todos os lançamentos"}
+                {tab === "entradas" && "Entradas"}
+                {tab === "saidas" && "Saídas"}
               </div>
-              {lista.length === 0 ? (
-                <p
-                  style={{
-                    textAlign: "center",
-                    padding: "28px 0",
-                    color: "#94a3b8",
-                    fontSize: 14,
-                  }}
-                >
-                  Nenhum gasto cadastrado.
-                </p>
-              ) : (
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    fontSize: 14,
-                  }}
-                >
+              <span style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                {lista.length} {lista.length === 1 ? "item" : "itens"}
+              </span>
+            </div>
+
+            {lista.length === 0 ? (
+              <div className="empty">Nenhum lançamento cadastrado ainda.</div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table>
                   <thead>
                     <tr>
-                      {[
-                        "Tipo",
-                        "Pessoa",
-                        "Categoria",
-                        "Descrição",
-                        "Valor",
-                        "",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          style={{
-                            padding: "10px 12px",
-                            textAlign: h === "Valor" ? "right" : "left",
-                            fontSize: 12,
-                            fontWeight: 500,
-                            color: "#94a3b8",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.04em",
-                            borderBottom: "0.5px solid #e2e8f0",
-                          }}
-                        >
-                          {h}
-                        </th>
-                      ))}
+                      <th>Tipo</th>
+                      <th>Pessoa</th>
+                      <th>Categoria</th>
+                      <th>Descrição</th>
+                      <th style={{ textAlign: "right" }}>Valor</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
                     {lista.map((g) => {
                       const av = AVATAR_COLORS[g.pessoa] ?? [
-                        "#D3D1C7",
-                        "#444441",
+                        "#2d2d3a",
+                        "#e2e8f0",
                       ];
                       return (
                         <tr key={g.id}>
-                          <td
-                            style={{
-                              padding: "11px 12px",
-                              borderBottom: "0.5px solid #f1f5f9",
-                            }}
-                          >
+                          <td>
                             <span
-                              style={{
-                                background:
-                                  g.tipo === "Entrada" ? "#DCFCE7" : "#FEE2E2",
-                                color:
-                                  g.tipo === "Entrada" ? "#166534" : "#991B1B",
-                                padding: "3px 10px",
-                                borderRadius: 20,
-                                fontSize: 12,
-                                fontWeight: 500,
-                              }}
+                              className={`tag ${g.tipo === "Entrada" ? "tag-entrada" : "tag-saida"}`}
                             >
                               {g.tipo}
                             </span>
                           </td>
-                          <td
-                            style={{
-                              padding: "11px 12px",
-                              borderBottom: "0.5px solid #f1f5f9",
-                            }}
-                          >
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 8,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  width: 26,
-                                  height: 26,
-                                  borderRadius: "50%",
-                                  background: av[0],
-                                  color: av[1],
-                                  fontSize: 11,
-                                  fontWeight: 500,
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  flexShrink: 0,
-                                }}
+                          <td>
+                            <div className="pessoa-cell">
+                              <div
+                                className="avatar"
+                                style={{ background: av[0], color: av[1] }}
                               >
                                 {initials(g.pessoa)}
-                              </span>
+                              </div>
                               {g.pessoa}
-                            </span>
+                            </div>
                           </td>
+                          <td>
+                            <span className="tag tag-cat">{g.categoria}</span>
+                          </td>
+                          <td>{g.descricao}</td>
                           <td
                             style={{
-                              padding: "11px 12px",
-                              borderBottom: "0.5px solid #f1f5f9",
-                            }}
-                          >
-                            <span
-                              style={{
-                                ...badgeStyle(g.categoria),
-                                padding: "3px 10px",
-                                borderRadius: 20,
-                                fontSize: 12,
-                                fontWeight: 500,
-                              }}
-                            >
-                              {g.categoria}
-                            </span>
-                          </td>
-                          <td
-                            style={{
-                              padding: "11px 12px",
-                              borderBottom: "0.5px solid #f1f5f9",
-                              color: "#475569",
-                            }}
-                          >
-                            {g.descricao}
-                          </td>
-                          <td
-                            style={{
-                              padding: "11px 12px",
-                              borderBottom: "0.5px solid #f1f5f9",
                               textAlign: "right",
-                              fontWeight: 500,
+                              fontWeight: 600,
+                              color:
+                                g.tipo === "Entrada" ? "#4ade80" : "#f87171",
                             }}
                           >
                             {fmt(Number(g.valor))}
                           </td>
-                          <td
-                            style={{
-                              padding: "11px 12px",
-                              borderBottom: "0.5px solid #f1f5f9",
-                            }}
-                          >
+                          <td style={{ textAlign: "right" }}>
                             <button
+                              className="icon-btn"
                               onClick={() => {
                                 setGastoParaExcluir(g.id);
                                 setModalExcluir(true);
                               }}
-                              style={{
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                color: "#94a3b8",
-                                fontSize: 16,
-                                padding: "2px 6px",
-                                borderRadius: 4,
-                              }}
-                              aria-label="Remover gasto"
+                              aria-label="Remover"
                             >
                               🗑
                             </button>
@@ -871,94 +658,33 @@ export default function Home() {
                     })}
                   </tbody>
                 </table>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-        </div>
+        </main>
       </div>
 
-      {/* Responsive styles */}
-      <style>{`
-  .form-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-
-@media (max-width: 900px) {
-  .form-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-}
-`}</style>
-
       {modalExcluir && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              padding: 24,
-              borderRadius: 12,
-              width: 320,
-              textAlign: "center",
-            }}
-          >
-            <h3>Excluir gasto</h3>
-
-            <p>Deseja realmente excluir este gasto?</p>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                gap: 10,
-                marginTop: 20,
-              }}
-            >
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Excluir lançamento</h3>
+            <p>
+              Tem certeza que deseja excluir este lançamento? Essa ação não pode
+              ser desfeita.
+            </p>
+            <div className="modal-actions">
               <button
+                className="btn-ghost"
                 onClick={() => setModalExcluir(false)}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 8,
-                  border: "1px solid #ccc",
-                  cursor: "pointer",
-                }}
               >
                 Cancelar
               </button>
-
               <button
+                className="btn-danger"
                 onClick={async () => {
-                  if (gastoParaExcluir) {
-                    await remover(gastoParaExcluir);
-                  }
-
+                  if (gastoParaExcluir) await remover(gastoParaExcluir);
                   setModalExcluir(false);
                   setGastoParaExcluir(null);
-                }}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: "#dc2626",
-                  color: "#fff",
-                  cursor: "pointer",
                 }}
               >
                 Excluir
@@ -967,6 +693,6 @@ export default function Home() {
           </div>
         </div>
       )}
-    </main>
+    </>
   );
 }
