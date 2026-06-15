@@ -5,6 +5,20 @@ import { supabase } from "../lib/supabase";
 
 const PESSOAS = ["Alba", "Evandro", "João"];
 const CATEGORIAS = ["Salário", "Aluguel", "Conta Fixa", "Gasto Variável"];
+const MESES = [
+  { value: "01", label: "Janeiro" },
+  { value: "02", label: "Fevereiro" },
+  { value: "03", label: "Março" },
+  { value: "04", label: "Abril" },
+  { value: "05", label: "Maio" },
+  { value: "06", label: "Junho" },
+  { value: "07", label: "Julho" },
+  { value: "08", label: "Agosto" },
+  { value: "09", label: "Setembro" },
+  { value: "10", label: "Outubro" },
+  { value: "11", label: "Novembro" },
+  { value: "12", label: "Dezembro" },
+];
 
 const AVATAR_COLORS: Record<string, [string, string]> = {
   Alba: ["#F5C4B3", "#993C1D"],
@@ -41,6 +55,7 @@ export default function Home() {
   const [usuario, setUsuario] = useState<any>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [mesSelecionado, setMesSelecionado] = useState("");
 
   const [form, setForm] = useState({
     pessoa: "",
@@ -148,12 +163,24 @@ export default function Home() {
   }
 
   // Filtro pela aba
-  const lista =
-    tab === "entradas"
-      ? gastos.filter((g) => g.tipo === "Entrada")
-      : tab === "saidas"
-        ? gastos.filter((g) => g.tipo === "Saída")
-        : gastos;
+  const lista = gastos
+    .filter((g) => {
+      if (!mesSelecionado) return true;
+
+      const mesGasto = String(new Date(g.created_at!).getMonth() + 1).padStart(
+        2,
+        "0",
+      );
+
+      return mesGasto === mesSelecionado;
+    })
+    .filter((g) =>
+      tab === "entradas"
+        ? g.tipo === "Entrada"
+        : tab === "saidas"
+          ? g.tipo === "Saída"
+          : true,
+    );
 
   const totalEntradas = gastos
     .filter((g) => g.tipo === "Entrada")
@@ -379,6 +406,65 @@ export default function Home() {
           background: #dc2626; color: #fff; font-size: 0.85rem; font-weight: 600;
           cursor: pointer;
         }
+          .bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  background: #16161c;
+  border-top: 1px solid #2d2d3a;
+  display: none;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 999;
+}
+
+.bottom-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.bottom-btn.active {
+  color: #818cf8;
+}
+
+.bottom-add {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(
+    135deg,
+    #6366f1,
+    #8b5cf6
+  );
+  color: white;
+  font-size: 32px;
+  margin-top: -25px;
+  cursor: pointer;
+}
+
+@media (max-width:768px) {
+
+  .bottom-nav {
+    display: flex;
+  }
+
+  .container {
+    padding-bottom: 100px;
+  }
+
+  .hamburger {
+    display: none;
+  }
+}
       `}</style>
 
       <div className="app-root">
@@ -581,6 +667,38 @@ export default function Home() {
                 {tab === "entradas" && "Entradas"}
                 {tab === "saidas" && "Saídas"}
               </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  alignItems: "center",
+                }}
+              >
+                <select
+                  className="field-select"
+                  value={mesSelecionado}
+                  onChange={(e) => setMesSelecionado(e.target.value)}
+                  style={{ width: "180px" }}
+                >
+                  <option value="">Todos os meses</option>
+
+                  {MESES.map((mes) => (
+                    <option key={mes.value} value={mes.value}>
+                      {mes.label}
+                    </option>
+                  ))}
+                </select>
+
+                <span
+                  style={{
+                    fontSize: "0.78rem",
+                    color: "#64748b",
+                  }}
+                >
+                  {lista.length} {lista.length === 1 ? "item" : "itens"}
+                </span>
+              </div>
               <span style={{ fontSize: "0.78rem", color: "#64748b" }}>
                 {lista.length} {lista.length === 1 ? "item" : "itens"}
               </span>
@@ -663,7 +781,40 @@ export default function Home() {
           </div>
         </main>
       </div>
+      <div className="bottom-nav">
+        <button
+          className={`bottom-btn ${tab === "painel" ? "active" : ""}`}
+          onClick={() => setTab("painel")}
+        >
+          📊
+          <span>Painel</span>
+        </button>
 
+        <button
+          className={`bottom-btn ${tab === "entradas" ? "active" : ""}`}
+          onClick={() => setTab("entradas")}
+        >
+          💰
+          <span>Entradas</span>
+        </button>
+
+        <button className="bottom-add" onClick={() => setShowForm(true)}>
+          +
+        </button>
+
+        <button
+          className={`bottom-btn ${tab === "saidas" ? "active" : ""}`}
+          onClick={() => setTab("saidas")}
+        >
+          💸
+          <span>Saídas</span>
+        </button>
+
+        <button className="bottom-btn" onClick={logout}>
+          🚪
+          <span>Sair</span>
+        </button>
+      </div>
       {modalExcluir && (
         <div className="modal-overlay">
           <div className="modal">
