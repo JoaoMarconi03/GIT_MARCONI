@@ -57,6 +57,8 @@ export default function Home() {
   const [formSaida, setFormSaida] = useState({ pessoa: "", categoria: "", descricao: "", valor: "" });
   const [erroEntrada, setErroEntrada] = useState("");
   const [erroSaida, setErroSaida] = useState("");
+  const [loadingEntrada, setLoadingEntrada] = useState(false);
+  const [loadingSaida, setLoadingSaida] = useState(false);
 
   useEffect(() => {
     carregarGastos();
@@ -79,15 +81,17 @@ export default function Home() {
   async function adicionarEntrada() {
     setErroEntrada("");
     if (!formEntrada.pessoa || !formEntrada.categoria || !formEntrada.descricao || !formEntrada.valor) {
-      setErroEntrada("Preencha todos os campos antes de adicionar.");
+      setErroEntrada("Preencha todos os campos: Pessoa, Categoria, Descrição e Valor.");
       return;
     }
+    setLoadingEntrada(true);
     const { data, error } = await supabase
       .from("gastos")
       .insert([{ tipo: "Entrada", pessoa: formEntrada.pessoa, categoria: formEntrada.categoria, descricao: formEntrada.descricao, valor: Number(formEntrada.valor) }])
       .select();
+    setLoadingEntrada(false);
     if (error) {
-      console.error(error);
+      console.error("Supabase erro entrada:", error);
       setErroEntrada("Erro ao salvar: " + error.message);
       return;
     }
@@ -99,15 +103,17 @@ export default function Home() {
   async function adicionarSaida() {
     setErroSaida("");
     if (!formSaida.pessoa || !formSaida.categoria || !formSaida.descricao || !formSaida.valor) {
-      setErroSaida("Preencha todos os campos antes de adicionar.");
+      setErroSaida("Preencha todos os campos: Pessoa, Categoria, Descrição e Valor.");
       return;
     }
+    setLoadingSaida(true);
     const { data, error } = await supabase
       .from("gastos")
       .insert([{ tipo: "Saída", pessoa: formSaida.pessoa, categoria: formSaida.categoria, descricao: formSaida.descricao, valor: Number(formSaida.valor) }])
       .select();
+    setLoadingSaida(false);
     if (error) {
-      console.error(error);
+      console.error("Supabase erro saida:", error);
       setErroSaida("Erro ao salvar: " + error.message);
       return;
     }
@@ -550,10 +556,13 @@ export default function Home() {
                       onKeyDown={(e) => e.key === "Enter" && adicionarEntrada()} />
                   </div>
                   <div className="if-btn">
-                    <button type="button" className="btn-green" onClick={adicionarEntrada}>+ Adicionar</button>
+                    <button type="button" className="btn-green" onClick={adicionarEntrada} disabled={loadingEntrada}
+                      style={{ opacity: loadingEntrada ? 0.7 : 1 }}>
+                      {loadingEntrada ? "Salvando..." : "+ Adicionar"}
+                    </button>
                   </div>
                 </div>
-                {erroEntrada && <div className="error-msg">{erroEntrada}</div>}
+                {erroEntrada && <div className="error-msg">⚠️ {erroEntrada}</div>}
               </div>
 
               <div className="panel">
@@ -635,10 +644,13 @@ export default function Home() {
                       onKeyDown={(e) => e.key === "Enter" && adicionarSaida()} />
                   </div>
                   <div className="if-btn">
-                    <button type="button" className="btn-purple" onClick={adicionarSaida}>+ Adicionar</button>
+                    <button type="button" className="btn-purple" onClick={adicionarSaida} disabled={loadingSaida}
+                      style={{ opacity: loadingSaida ? 0.7 : 1 }}>
+                      {loadingSaida ? "Salvando..." : "+ Adicionar"}
+                    </button>
                   </div>
                 </div>
-                {erroSaida && <div className="error-msg">{erroSaida}</div>}
+                {erroSaida && <div className="error-msg">⚠️ {erroSaida}</div>}
               </div>
 
               <div className="panel">
