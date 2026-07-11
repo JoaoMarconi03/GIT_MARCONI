@@ -51,10 +51,9 @@ export default function Home() {
   const [modalExcluir, setModalExcluir] = useState(false);
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [tab, setTab] = useState<Tab>("painel");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [mesSelecionado, setMesSelecionado] = useState("");
 
-  const [formEntrada, setFormEntrada] = useState({ pessoa: "", descricao: "", valor: "" });
+  const [formEntrada, setFormEntrada] = useState({ pessoa: "", categoria: "", descricao: "", valor: "" });
   const [formSaida, setFormSaida] = useState({ pessoa: "", categoria: "", descricao: "", valor: "" });
 
   useEffect(() => {
@@ -76,18 +75,18 @@ export default function Home() {
   }
 
   async function adicionarEntrada() {
-    if (!formEntrada.pessoa || !formEntrada.descricao || !formEntrada.valor) {
+    if (!formEntrada.pessoa || !formEntrada.categoria || !formEntrada.descricao || !formEntrada.valor) {
       alert("Preencha todos os campos");
       return;
     }
     const { data, error } = await supabase
       .from("gastos")
-      .insert([{ tipo: "Entrada", pessoa: formEntrada.pessoa, categoria: "Entrada", descricao: formEntrada.descricao, valor: Number(formEntrada.valor) }])
+      .insert([{ tipo: "Entrada", pessoa: formEntrada.pessoa, categoria: formEntrada.categoria, descricao: formEntrada.descricao, valor: Number(formEntrada.valor) }])
       .select();
-    if (error) { console.error(error); alert("Erro ao salvar"); return; }
+    if (error) { console.error(error); alert("Erro ao salvar: " + error.message); return; }
     setGastos((prev) => [data[0], ...prev]);
     mostrarSucesso();
-    setFormEntrada({ pessoa: "", descricao: "", valor: "" });
+    setFormEntrada({ pessoa: "", categoria: "", descricao: "", valor: "" });
   }
 
   async function adicionarSaida() {
@@ -99,7 +98,7 @@ export default function Home() {
       .from("gastos")
       .insert([{ tipo: "Saída", pessoa: formSaida.pessoa, categoria: formSaida.categoria, descricao: formSaida.descricao, valor: Number(formSaida.valor) }])
       .select();
-    if (error) { console.error(error); alert("Erro ao salvar"); return; }
+    if (error) { console.error(error); alert("Erro ao salvar: " + error.message); return; }
     setGastos((prev) => [data[0], ...prev]);
     mostrarSucesso();
     setFormSaida({ pessoa: "", categoria: "", descricao: "", valor: "" });
@@ -145,10 +144,12 @@ export default function Home() {
         /* ── NAVBAR ── */
         .navbar {
           position: sticky; top: 0; z-index: 50;
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 0 1.25rem; height: 58px;
           background: #fff; border-bottom: 1px solid #e8e4f8;
           box-shadow: 0 1px 8px rgba(124,58,237,0.07);
+        }
+        .nav-top {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 0 1.25rem; height: 52px;
         }
         .nav-brand { font-size: 1.05rem; font-weight: 700; color: #1e1b4b; letter-spacing: -0.3px; white-space: nowrap; }
         .nav-brand span { color: #7c3aed; }
@@ -160,16 +161,13 @@ export default function Home() {
         }
         .nav-tab:hover  { color: #1e1b4b; background: #f5f3ff; }
         .nav-tab.active { color: #7c3aed; background: #ede9fe; font-weight: 600; }
-        .hamburger { display: none; background: none; border: none; color: #64748b; font-size: 1.4rem; cursor: pointer; padding: 0.25rem; }
+
         @media (max-width: 640px) {
-          .nav-tabs { display: none; }
-          .nav-tabs.open {
-            display: flex; flex-direction: column;
-            position: absolute; top: 58px; left: 0; right: 0;
-            background: #fff; border-bottom: 1px solid #e8e4f8;
-            padding: 0.5rem; box-shadow: 0 6px 16px rgba(124,58,237,0.1); z-index: 49;
-          }
-          .hamburger { display: block; }
+          .nav-top { flex-direction: column; height: auto; padding: 0; align-items: stretch; }
+          .nav-brand { text-align: center; padding: 0.65rem 1rem; }
+          .nav-tabs { width: 100%; gap: 0; border-top: 1px solid #ede9fe; background: #faf9ff; }
+          .nav-tab { flex: 1; text-align: center; border-radius: 0; font-size: 0.79rem; padding: 0.6rem 0.25rem; }
+          .nav-tab.active { background: #f5f3ff; border-radius: 0; border-bottom: 2px solid #7c3aed; }
         }
 
         /* ── LAYOUT ── */
@@ -237,7 +235,9 @@ export default function Home() {
         .if-btn      { flex: 0 0 auto; }
         @media (max-width: 560px) {
           .inline-form { flex-direction: column; gap: 0.65rem; }
-          .if-pessoa, .if-cat, .if-desc, .if-valor, .if-btn { flex: 1 1 auto; width: 100%; }
+          .if-pessoa, .if-cat, .if-desc, .if-valor { flex: 1 1 auto; width: 100%; }
+          .if-btn { width: 100%; }
+          .if-btn button { width: 100%; justify-content: center; }
         }
 
         .field-label { display: block; font-size: 0.75rem; color: #64748b; margin-bottom: 0.35rem; font-weight: 500; }
@@ -250,29 +250,26 @@ export default function Home() {
         }
         .field-input::placeholder { color: #c4b5fd; }
         .field-input:focus, .field-select:focus { border-color: #7c3aed; background: #fff; box-shadow: 0 0 0 3px rgba(124,58,237,0.08); }
-        /* dropdown arrow */
         .field-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a78bfa' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.75rem center; padding-right: 2rem; }
 
         /* ── BUTTONS ── */
         .btn-green {
           display: flex; align-items: center; gap: 0.35rem;
-          padding: 0.65rem 1.1rem; border-radius: 10px; border: none;
+          padding: 0.65rem 1.25rem; border-radius: 10px; border: none;
           background: linear-gradient(135deg, #22c55e, #16a34a);
           color: #fff; font-size: 0.875rem; font-weight: 600;
           cursor: pointer; box-shadow: 0 3px 10px rgba(34,197,94,0.22);
-          white-space: nowrap; font-family: inherit;
-          min-height: 44px;
+          white-space: nowrap; font-family: inherit; min-height: 44px;
         }
         .btn-green:active { transform: scale(0.97); }
 
         .btn-purple {
           display: flex; align-items: center; gap: 0.35rem;
-          padding: 0.65rem 1.1rem; border-radius: 10px; border: none;
+          padding: 0.65rem 1.25rem; border-radius: 10px; border: none;
           background: linear-gradient(135deg, #7c3aed, #6d28d9);
           color: #fff; font-size: 0.875rem; font-weight: 600;
           cursor: pointer; box-shadow: 0 3px 10px rgba(124,58,237,0.22);
-          white-space: nowrap; font-family: inherit;
-          min-height: 44px;
+          white-space: nowrap; font-family: inherit; min-height: 44px;
         }
         .btn-purple:active { transform: scale(0.97); }
 
@@ -280,8 +277,7 @@ export default function Home() {
           padding: 0.6rem 1rem; border-radius: 10px;
           background: transparent; border: 1.5px solid #e8e4f8;
           color: #64748b; font-size: 0.875rem; font-weight: 500;
-          cursor: pointer; transition: all 0.18s; font-family: inherit;
-          min-height: 44px;
+          cursor: pointer; transition: all 0.18s; font-family: inherit; min-height: 40px;
         }
         .btn-ghost:hover { border-color: #7c3aed; color: #7c3aed; background: #faf5ff; }
 
@@ -295,7 +291,6 @@ export default function Home() {
         .entry-item:first-child { padding-top: 0.1rem; }
         .entry-item:last-child  { border-bottom: none; }
 
-        /* avatar */
         .avatar {
           width: 38px; height: 38px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
@@ -303,7 +298,6 @@ export default function Home() {
         }
         @media (max-width: 400px) { .avatar { width: 32px; height: 32px; font-size: 0.68rem; } }
 
-        /* body: two rows */
         .entry-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.18rem; }
         .entry-head { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
         .entry-nome { font-size: 0.68rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
@@ -318,7 +312,6 @@ export default function Home() {
         .entry-footer-label { font-size: 0.8rem; color: #94a3b8; }
         .entry-footer-total { font-size: 1.05rem; font-weight: 700; }
 
-        /* delete */
         .icon-btn {
           background: none; border: none; cursor: pointer;
           color: #d1d5db; font-size: 1rem; padding: 0.4rem 0.45rem;
@@ -374,54 +367,23 @@ export default function Home() {
           cursor: pointer; font-family: inherit; min-height: 40px;
         }
         .btn-danger:hover { background: #b91c1c; }
-
-        /* ── BOTTOM NAV ── */
-        .bottom-nav {
-          position: fixed; bottom: 0; left: 0; right: 0;
-          height: 64px;
-          background: #fff; border-top: 1px solid #e8e4f8;
-          display: none; justify-content: space-around; align-items: center;
-          z-index: 999; box-shadow: 0 -4px 18px rgba(124,58,237,0.08);
-          padding-bottom: env(safe-area-inset-bottom);
-        }
-        .bottom-btn {
-          background: none; border: none; color: #94a3b8;
-          display: flex; flex-direction: column; align-items: center;
-          gap: 3px; font-size: 11px; cursor: pointer; font-family: inherit;
-          font-weight: 500; min-width: 56px; padding: 0.35rem 0;
-        }
-        .bottom-btn.active { color: #7c3aed; }
-        .bottom-btn span { line-height: 1; }
-        .bottom-add {
-          width: 52px; height: 52px; border-radius: 50%; border: none;
-          background: linear-gradient(135deg, #7c3aed, #6d28d9);
-          color: white; font-size: 26px; line-height: 1;
-          margin-top: -18px; cursor: pointer;
-          box-shadow: 0 4px 14px rgba(124,58,237,0.4);
-          display: flex; align-items: center; justify-content: center;
-        }
-
-        @media (max-width: 768px) {
-          .bottom-nav { display: flex; }
-          .container  { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
-          .hamburger  { display: none !important; }
-        }
       `}</style>
 
       <div className="app-root">
 
         {/* ── NAVBAR ── */}
         <nav className="navbar">
-          <div className="nav-brand">Organização<span>Financeira</span></div>
-          <div className={`nav-tabs ${menuOpen ? "open" : ""}`}>
-            {(["painel", "entradas", "saidas"] as Tab[]).map((t) => (
-              <button key={t} className={`nav-tab ${tab === t ? "active" : ""}`}
-                onClick={() => { setTab(t); setMenuOpen(false); }}>
-                {t === "painel" ? "Painel geral" : t === "entradas" ? "Entradas" : "Saídas"}
-              </button>
-            ))}
+          <div className="nav-top">
+            <div className="nav-brand">Organização<span>Financeira</span></div>
+            <div className="nav-tabs">
+              {(["painel", "entradas", "saidas"] as Tab[]).map((t) => (
+                <button key={t} className={`nav-tab ${tab === t ? "active" : ""}`}
+                  onClick={() => setTab(t)}>
+                  {t === "painel" ? "Painel geral" : t === "entradas" ? "Entradas" : "Saídas"}
+                </button>
+              ))}
+            </div>
           </div>
-          <button className="hamburger" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">☰</button>
         </nav>
 
         <main className="container">
@@ -549,9 +511,19 @@ export default function Home() {
                       {PESSOAS.map((p) => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
+                  <div className="if-cat">
+                    <label className="field-label">Categoria</label>
+                    <select className="field-select" value={formEntrada.categoria} onChange={(e) => setFormEntrada({ ...formEntrada, categoria: e.target.value })}>
+                      <option value="">Selecione</option>
+                      <option value="Salário">Salário</option>
+                      <option value="Freelance">Freelance</option>
+                      <option value="PIX">PIX</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                  </div>
                   <div className="if-desc">
                     <label className="field-label">Descrição</label>
-                    <input className="field-input" placeholder="ex: Salário, Freelance…" value={formEntrada.descricao}
+                    <input className="field-input" placeholder="ex: Salário março, Freelance…" value={formEntrada.descricao}
                       onChange={(e) => setFormEntrada({ ...formEntrada, descricao: e.target.value })}
                       onKeyDown={(e) => e.key === "Enter" && adicionarEntrada()} />
                   </div>
@@ -562,7 +534,7 @@ export default function Home() {
                       onKeyDown={(e) => e.key === "Enter" && adicionarEntrada()} />
                   </div>
                   <div className="if-btn">
-                    <button className="btn-green" onClick={adicionarEntrada}>+ Adicionar</button>
+                    <button type="button" className="btn-green" onClick={adicionarEntrada}>+ Adicionar</button>
                   </div>
                 </div>
               </div>
@@ -588,14 +560,14 @@ export default function Home() {
                           <div className="entry-body">
                             <div className="entry-head">
                               <span className="entry-nome">{g.pessoa}</span>
-                              <span className="tag tag-entrada">Entrada</span>
+                              <span className="tag tag-cat">{g.categoria}</span>
                             </div>
                             <div className="entry-foot">
                               <span className="entry-desc">{g.descricao}</span>
                               <span className="entry-valor" style={{ color: "#16a34a" }}>{fmt(Number(g.valor))}</span>
                             </div>
                           </div>
-                          <button className="icon-btn" onClick={() => { setGastoParaExcluir(g.id); setModalExcluir(true); }} aria-label="Remover">🗑</button>
+                          <button type="button" className="icon-btn" onClick={() => { setGastoParaExcluir(g.id); setModalExcluir(true); }} aria-label="Remover">🗑</button>
                         </div>
                       );
                     })}
@@ -646,7 +618,7 @@ export default function Home() {
                       onKeyDown={(e) => e.key === "Enter" && adicionarSaida()} />
                   </div>
                   <div className="if-btn">
-                    <button className="btn-purple" onClick={adicionarSaida}>+ Adicionar</button>
+                    <button type="button" className="btn-purple" onClick={adicionarSaida}>+ Adicionar</button>
                   </div>
                 </div>
               </div>
@@ -679,7 +651,7 @@ export default function Home() {
                               <span className="entry-valor" style={{ color: "#dc2626" }}>{fmt(Number(g.valor))}</span>
                             </div>
                           </div>
-                          <button className="icon-btn" onClick={() => { setGastoParaExcluir(g.id); setModalExcluir(true); }} aria-label="Remover">🗑</button>
+                          <button type="button" className="icon-btn" onClick={() => { setGastoParaExcluir(g.id); setModalExcluir(true); }} aria-label="Remover">🗑</button>
                         </div>
                       );
                     })}
@@ -695,20 +667,6 @@ export default function Home() {
         </main>
       </div>
 
-      {/* ── BOTTOM NAV ── */}
-      <div className="bottom-nav">
-        <button className={`bottom-btn ${tab === "painel" ? "active" : ""}`} onClick={() => setTab("painel")}>
-          <span style={{ fontSize: "1.3rem" }}>📊</span><span>Painel</span>
-        </button>
-        <button className={`bottom-btn ${tab === "entradas" ? "active" : ""}`} onClick={() => setTab("entradas")}>
-          <span style={{ fontSize: "1.3rem" }}>💰</span><span>Entradas</span>
-        </button>
-        <button className="bottom-add" onClick={() => setTab("entradas")}>+</button>
-        <button className={`bottom-btn ${tab === "saidas" ? "active" : ""}`} onClick={() => setTab("saidas")}>
-          <span style={{ fontSize: "1.3rem" }}>💸</span><span>Saídas</span>
-        </button>
-      </div>
-
       {/* ── MODAL ── */}
       {modalExcluir && (
         <div className="modal-overlay">
@@ -716,8 +674,8 @@ export default function Home() {
             <h3>Excluir lançamento</h3>
             <p>Tem certeza que deseja excluir este lançamento? Essa ação não pode ser desfeita.</p>
             <div className="modal-actions">
-              <button className="btn-ghost" onClick={() => setModalExcluir(false)}>Cancelar</button>
-              <button className="btn-danger" onClick={async () => {
+              <button type="button" className="btn-ghost" onClick={() => setModalExcluir(false)}>Cancelar</button>
+              <button type="button" className="btn-danger" onClick={async () => {
                 if (gastoParaExcluir) await remover(gastoParaExcluir);
                 setModalExcluir(false);
                 setGastoParaExcluir(null);
@@ -726,6 +684,7 @@ export default function Home() {
           </div>
         </div>
       )}
+
     </>
   );
 }
