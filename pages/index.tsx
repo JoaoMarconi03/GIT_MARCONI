@@ -55,6 +55,8 @@ export default function Home() {
 
   const [formEntrada, setFormEntrada] = useState({ pessoa: "", categoria: "", descricao: "", valor: "" });
   const [formSaida, setFormSaida] = useState({ pessoa: "", categoria: "", descricao: "", valor: "" });
+  const [erroEntrada, setErroEntrada] = useState("");
+  const [erroSaida, setErroSaida] = useState("");
 
   useEffect(() => {
     carregarGastos();
@@ -75,30 +77,40 @@ export default function Home() {
   }
 
   async function adicionarEntrada() {
+    setErroEntrada("");
     if (!formEntrada.pessoa || !formEntrada.categoria || !formEntrada.descricao || !formEntrada.valor) {
-      alert("Preencha todos os campos");
+      setErroEntrada("Preencha todos os campos antes de adicionar.");
       return;
     }
     const { data, error } = await supabase
       .from("gastos")
       .insert([{ tipo: "Entrada", pessoa: formEntrada.pessoa, categoria: formEntrada.categoria, descricao: formEntrada.descricao, valor: Number(formEntrada.valor) }])
       .select();
-    if (error) { console.error(error); alert("Erro ao salvar: " + error.message); return; }
+    if (error) {
+      console.error(error);
+      setErroEntrada("Erro ao salvar: " + error.message);
+      return;
+    }
     setGastos((prev) => [data[0], ...prev]);
     mostrarSucesso();
     setFormEntrada({ pessoa: "", categoria: "", descricao: "", valor: "" });
   }
 
   async function adicionarSaida() {
+    setErroSaida("");
     if (!formSaida.pessoa || !formSaida.categoria || !formSaida.descricao || !formSaida.valor) {
-      alert("Preencha todos os campos");
+      setErroSaida("Preencha todos os campos antes de adicionar.");
       return;
     }
     const { data, error } = await supabase
       .from("gastos")
       .insert([{ tipo: "Saída", pessoa: formSaida.pessoa, categoria: formSaida.categoria, descricao: formSaida.descricao, valor: Number(formSaida.valor) }])
       .select();
-    if (error) { console.error(error); alert("Erro ao salvar: " + error.message); return; }
+    if (error) {
+      console.error(error);
+      setErroSaida("Erro ao salvar: " + error.message);
+      return;
+    }
     setGastos((prev) => [data[0], ...prev]);
     mostrarSucesso();
     setFormSaida({ pessoa: "", categoria: "", descricao: "", valor: "" });
@@ -179,6 +191,10 @@ export default function Home() {
         .success-msg {
           padding: 0.75rem 1rem; border-radius: 10px; margin-bottom: 1.1rem;
           background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; font-size: 0.85rem;
+        }
+        .error-msg {
+          padding: 0.65rem 0.9rem; border-radius: 10px; margin-top: 0.85rem;
+          background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-size: 0.82rem;
         }
 
         /* ── PANELS ── */
@@ -537,6 +553,7 @@ export default function Home() {
                     <button type="button" className="btn-green" onClick={adicionarEntrada}>+ Adicionar</button>
                   </div>
                 </div>
+                {erroEntrada && <div className="error-msg">{erroEntrada}</div>}
               </div>
 
               <div className="panel">
@@ -621,6 +638,7 @@ export default function Home() {
                     <button type="button" className="btn-purple" onClick={adicionarSaida}>+ Adicionar</button>
                   </div>
                 </div>
+                {erroSaida && <div className="error-msg">{erroSaida}</div>}
               </div>
 
               <div className="panel">
